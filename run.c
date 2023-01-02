@@ -15,7 +15,7 @@
 #include "flag.h"
 
 void usage(FILE* stream) {
-  fprintf(stream, "Usage: lit [OPTIONS]\n");
+  fprintf(stream, "Usage: lit [OPTIONS] -- <INPUT-FILE>\n");
   flag_print_options(stream);
 }
 
@@ -68,7 +68,6 @@ error:
 }
 
 int main(int argc, char** argv) {
-  char** input = flag_str("input", NULL, "Path to the input file");
   char** begin = flag_str("begin", "\\begin{code}",
                           "Line that denotes the beginning of the code block "
                           "in the markup language");
@@ -77,6 +76,8 @@ int main(int argc, char** argv) {
       "Line that denotes the end of the code block in the markup language");
   char** comment = flag_str("comment", "//",
                             "The inline comment of the programming language");
+  char** output = flag_str(
+      "o", NULL, "Output file path. If not provided, output to stdout.");
 
   if (!flag_parse(argc, argv)) {
     usage(stderr);
@@ -84,38 +85,62 @@ int main(int argc, char** argv) {
     exit(1);
   }
 
-  if (*input == NULL) {
+  int rest_argc = flag_rest_argc();
+  char** rest_argv = flag_rest_argv();
+
+  if (rest_argc <= 0) {
     usage(stderr);
-    fprintf(stderr, "ERROR: No input file is provided\n");
+    fprintf(stderr, "ERROR: no input file was provided\n");
     exit(1);
   }
 
+  if (rest_argc > 1) {
+    usage(stderr);
+    fprintf(stderr, "ERROR: only one input file is supported right now\n");
+    exit(1);
+  }
+
+  const char* input = rest_argv[0];
   Mapped_File mf = {0};
-  if (!map_file(&mf, *input)) {
-    fprintf(stderr, "ERROR: could not read file %s: %s\n", *input,
+  if (!map_file(&mf, input)) {
+    fprintf(stderr, "ERROR: could not read file %s: %s\n", input,
             strerror(errno));
     exit(1);
   }
 
-  bool code_mode = false;
-
   String_View content = sv_from_parts(mf.content_data, mf.content_size);
+
+  FILE* stream = stdout;
+  if (*output) {
+    stream = fopen(*output, "wb");
+    if (stream == NULL) {
+      fprintf(stderr, "ERROR: could not open file %s: %s\n", *output,
+              strerror(errno));
+      exit(1);
+    }
+  }
+
+  bool code_mode = false;
   while (content.count > 0) {
     String_View line = sv_chop_by_delim(&content, '\n');
 
     if (code_mode) {
       if (sv_eq(sv_trim(line), sv_from_cstr(*end))) {
-        printf("%s" SV_Fmt "\n", *comment, SV_Arg(line));
+        fprintf(stream, "%s" SV_Fmt "\n", *comment, SV_Arg(line));
         code_mode = false;
       } else {
-        printf(SV_Fmt "\n", SV_Arg(line));
+        fprintf(stream, SV_Fmt "\n", SV_Arg(line));
       }
     } else {
+      fprintf(stream, "%s " SV_Fmt "\n", *comment, SV_Arg(line));
       if (sv_eq(sv_trim(line), sv_from_cstr(*begin))) {
-        printf("%s" SV_Fmt "\n", *comment, SV_Arg(line));
         code_mode = true;
       }
     }
+  }
+
+  if (*output) {
+    fclose(stream);
   }
 
   // release resources
