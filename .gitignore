@@ -1,2 +1,6 @@
 .vscode
 out
+test/lit
+test/*.aux
+test/*.log
+test/*.o

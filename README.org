@@ -1,5 +1,47 @@
 ﻿#+TITLE: Literate Programming
 #+AUTHOR: Civitasv
 
-* 
+* Linux programming manual
 
+Suppose I want to check docs about ~printf~.
+
+- First, use ~apropos '^printf$'~.
+- Then, use ~man <index> printf~ to open docs about it.
+
+* Memory map for file
+
+#+begin_src c
+  const char* input_file_path = argv[1];
+
+  // open file, it will return a file descriptor
+  int fd = open(input_file_path, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr, "ERROR: could not open file %s: %s\n", input_file_path,
+            strerror(errno));
+    exit(1);
+   }
+
+  // retrieve file metedata
+  struct stat statbuf = {0};
+  if (fstat(fd, &statbuf) < 0) {
+    fprintf(stderr, "ERROR: could not determine the size of file %s: %s\n",
+            input_file_path, strerror(errno));
+   }
+
+  // retrieve file detailed info
+  size_t content_size = statbuf.st_size;
+  char* content_data = mmap(NULL, content_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (content_data == NULL) {
+    fprintf(stderr, "ERROR: could not memory map file %s: %s\n",
+            input_file_path, strerror(errno));
+   }
+
+  fwrite(content_data, content_size, 1, stdout);
+
+  // release resources
+  munmap(content_data, content_size);
+  close(fd);
+#+end_src
+
+
+Actually, this is a trivial task.
