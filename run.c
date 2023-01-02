@@ -11,7 +11,13 @@
 #define SV_IMPLEMENTATION
 #include "sv.h"
 
-void usage(FILE* stream) { fprintf(stream, "Usage: lit <input>\n"); }
+#define FLAG_IMPLEMENTATION
+#include "flag.h"
+
+void usage(FILE* stream) {
+  fprintf(stream, "Usage: lit [OPTIONS]\n");
+  flag_print_options(stream);
+}
 
 typedef struct {
   void* content_data;
@@ -62,17 +68,31 @@ error:
 }
 
 int main(int argc, char** argv) {
-  if (argc < 2) {
+  char** input = flag_str("input", NULL, "Path to the input file");
+  char** begin = flag_str("begin", "\\begin{code}",
+                          "Line that denotes the beginning of the code block "
+                          "in the markup language");
+  char** end = flag_str(
+      "end", "\\end{code}",
+      "Line that denotes the end of the code block in the markup language");
+  char** comment = flag_str("comment", "//",
+                            "The inline comment of the programming language");
+
+  if (!flag_parse(argc, argv)) {
     usage(stderr);
-    fprintf(stderr, "ERROR: no input file is provided!\n");
+    flag_print_error(stderr);
     exit(1);
   }
 
-  const char* input_file_path = argv[1];
+  if (*input == NULL) {
+    usage(stderr);
+    fprintf(stderr, "ERROR: No input file is provided\n");
+    exit(1);
+  }
 
   Mapped_File mf = {0};
-  if (!map_file(&mf, input_file_path)) {
-    fprintf(stderr, "ERROR: could not read file %s: %s\n", input_file_path,
+  if (!map_file(&mf, *input)) {
+    fprintf(stderr, "ERROR: could not read file %s: %s\n", *input,
             strerror(errno));
     exit(1);
   }
@@ -84,15 +104,15 @@ int main(int argc, char** argv) {
     String_View line = sv_chop_by_delim(&content, '\n');
 
     if (code_mode) {
-      if (sv_eq(sv_trim(line), SV("\\end{code}"))) {
-        printf("// " SV_Fmt "\n", SV_Arg(line));
+      if (sv_eq(sv_trim(line), sv_from_cstr(*end))) {
+        printf("%s" SV_Fmt "\n", *comment, SV_Arg(line));
         code_mode = false;
       } else {
         printf(SV_Fmt "\n", SV_Arg(line));
       }
     } else {
-      if (sv_eq(sv_trim(line), SV("\\begin{code}"))) {
-        printf("// " SV_Fmt "\n", SV_Arg(line));
+      if (sv_eq(sv_trim(line), sv_from_cstr(*begin))) {
+        printf("%s" SV_Fmt "\n", *comment, SV_Arg(line));
         code_mode = true;
       }
     }

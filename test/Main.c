@@ -51,5 +51,4 @@ bool is_sorted(int *xs, int n)
     }
     return true;
 }
-int main(){}
 // \end{code}

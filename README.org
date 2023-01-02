@@ -1,6 +1,8 @@
 ﻿#+TITLE: Literate Programming
 #+AUTHOR: Civitasv
 
+Implementation for [[https://www.youtube.com/watch?v=sSP42LcI15Y&list=PLpM-Dvs8t0VZjb0Pp0df56J1ZGqvVwmyx.]]
+
 * Linux programming manual
 
 Suppose I want to check docs about ~printf~.
